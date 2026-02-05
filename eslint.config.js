@@ -18,6 +18,14 @@ export default tseslint.config(
     },
   },
   {
+    files: ['tests/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+      },
+    },
+  },
+  {
     ignores: ['dist/', 'node_modules/', 'coverage/', '*.config.*', 'bin/'],
   }
 );

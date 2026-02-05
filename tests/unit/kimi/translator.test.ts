@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { splitMessage, translateUserToADE, translateADEToUser } from '../../../src/kimi/translator.js';
 
 vi.mock('../../../src/kimi/client.js', () => ({
