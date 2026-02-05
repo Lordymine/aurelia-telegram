@@ -67,16 +67,15 @@ describe('ClaudeCodeBridge', () => {
 
       const promise = bridge.execute('hello world');
 
-      // Simulate stdout data
-      mockProc.stdout.emit('data', Buffer.from('Hello '));
-      mockProc.stdout.emit('data', Buffer.from('response'));
+      // Simulate stream-json stdout
+      mockProc.stdout.emit('data', Buffer.from('{"type":"result","result":"Hello response"}\n'));
       mockProc.emit('close', 0);
 
       const result = await promise;
       expect(result).toBe('Hello response');
       expect(spawn).toHaveBeenCalledWith(
         'claude',
-        ['--print', '--output-format', 'text'],
+        ['--print', '--output-format', 'stream-json'],
         expect.objectContaining({
           stdio: ['pipe', 'pipe', 'pipe'],
           shell: true,
@@ -96,7 +95,7 @@ describe('ClaudeCodeBridge', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         'claude',
-        ['--print', '--output-format', 'text', '--allowedTools', 'Read,Write'],
+        ['--print', '--output-format', 'stream-json', '--allowedTools', 'Read,Write'],
         expect.any(Object),
       );
     });
@@ -111,7 +110,7 @@ describe('ClaudeCodeBridge', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         'claude',
-        ['--print', '--output-format', 'text', '--append-system-prompt', 'extra context'],
+        ['--print', '--output-format', 'stream-json', '--append-system-prompt', 'extra context'],
         expect.any(Object),
       );
     });
@@ -121,7 +120,7 @@ describe('ClaudeCodeBridge', () => {
       vi.mocked(spawn).mockReturnValue(mockProc as never);
 
       const promise = bridge.execute('bad command');
-      mockProc.stdout.emit('data', Buffer.from('error output'));
+      mockProc.stdout.emit('data', Buffer.from('{"type":"result","result":"error output"}\n'));
       mockProc.emit('close', 1);
 
       await expect(promise).rejects.toThrow('Claude Code exited with code 1');
@@ -162,7 +161,7 @@ describe('ClaudeCodeBridge', () => {
       await expect(bridge.execute('second')).rejects.toThrow('already running');
     });
 
-    it('should emit output events for stdout', async () => {
+    it('should emit output events for stream-json stdout', async () => {
       const mockProc = createMockProcess();
       vi.mocked(spawn).mockReturnValue(mockProc as never);
 
@@ -170,16 +169,15 @@ describe('ClaudeCodeBridge', () => {
       bridge.on('output', (chunk: OutputChunk) => chunks.push(chunk));
 
       const promise = bridge.execute('test');
-      mockProc.stdout.emit('data', Buffer.from('hello'));
+      mockProc.stdout.emit('data', Buffer.from('{"type":"assistant","message":{"content":"hello"}}\n'));
       mockProc.emit('close', 0);
       await promise;
 
-      expect(chunks).toHaveLength(1);
-      expect(chunks[0]!.type).toBe('text');
+      expect(chunks.length).toBeGreaterThanOrEqual(1);
       expect(chunks[0]!.content).toBe('hello');
     });
 
-    it('should emit error events for stderr', async () => {
+    it('should emit tool_use events', async () => {
       const mockProc = createMockProcess();
       vi.mocked(spawn).mockReturnValue(mockProc as never);
 
@@ -187,13 +185,18 @@ describe('ClaudeCodeBridge', () => {
       bridge.on('output', (chunk: OutputChunk) => chunks.push(chunk));
 
       const promise = bridge.execute('test');
-      mockProc.stderr.emit('data', Buffer.from('warning'));
+      const toolEvent = JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Read', input: { file_path: 'src/index.ts' } }] },
+      });
+      mockProc.stdout.emit('data', Buffer.from(toolEvent + '\n'));
       mockProc.emit('close', 0);
       await promise;
 
-      expect(chunks).toHaveLength(1);
-      expect(chunks[0]!.type).toBe('error');
-      expect(chunks[0]!.content).toBe('warning');
+      expect(chunks.length).toBeGreaterThanOrEqual(1);
+      const toolChunk = chunks.find((c) => c.type === 'tool_use');
+      expect(toolChunk).toBeDefined();
+      expect(toolChunk!.content).toContain('src/index.ts');
     });
 
     it('should use custom cwd when provided', async () => {

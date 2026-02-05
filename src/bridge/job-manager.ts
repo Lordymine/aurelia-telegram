@@ -129,8 +129,13 @@ export class JobManager extends EventEmitter {
     this.emitProgress(job, 'started');
 
     const outputHandler = (chunk: OutputChunk) => {
-      if (chunk.type === 'text') {
+      if (chunk.type === 'text' || chunk.type === 'assistant') {
         job.output.push(chunk.content);
+        this.emitProgress(job, 'output', chunk.content);
+      } else if (chunk.type === 'tool_use') {
+        this.emitProgress(job, 'output', chunk.content);
+      } else if (chunk.type === 'result') {
+        if (chunk.content) job.output.push(chunk.content);
         this.emitProgress(job, 'output', chunk.content);
       }
     };

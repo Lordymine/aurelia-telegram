@@ -12,9 +12,10 @@ export interface ExecuteOptions {
 }
 
 export interface OutputChunk {
-  type: 'text' | 'result' | 'error' | 'system';
+  type: 'text' | 'result' | 'error' | 'system' | 'tool_use' | 'assistant';
   content: string;
   timestamp: number;
+  toolName?: string;
 }
 
 export class ClaudeCodeBridge extends EventEmitter {
@@ -44,7 +45,7 @@ export class ClaudeCodeBridge extends EventEmitter {
 
     const { cwd, timeout = DEFAULT_TIMEOUT, allowedTools, appendSystemPrompt } = options;
 
-    const args = ['--print', '--output-format', 'text'];
+    const args = ['--print', '--output-format', 'stream-json'];
     if (allowedTools) {
       args.push('--allowedTools', allowedTools.join(','));
     }
@@ -56,7 +57,8 @@ export class ClaudeCodeBridge extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       this._isRunning = true;
-      const output: string[] = [];
+      const resultParts: string[] = [];
+      let lineBuffer = '';
 
       this.process = spawn('claude', args, {
         cwd: cwd ?? process.cwd(),
@@ -71,15 +73,20 @@ export class ClaudeCodeBridge extends EventEmitter {
       }, timeout);
 
       this.process.stdout?.on('data', (data: Buffer) => {
-        const text = data.toString();
-        output.push(text);
-        this.emit('output', { type: 'text', content: text, timestamp: Date.now() } satisfies OutputChunk);
+        lineBuffer += data.toString();
+        const lines = lineBuffer.split('\n');
+        lineBuffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          this.parseStreamLine(trimmed, resultParts);
+        }
       });
 
       this.process.stderr?.on('data', (data: Buffer) => {
         const text = data.toString();
         logger.debug({ stderr: text }, 'Claude Code stderr');
-        this.emit('output', { type: 'error', content: text, timestamp: Date.now() } satisfies OutputChunk);
       });
 
       this.process.stdin?.write(prompt);
@@ -90,7 +97,12 @@ export class ClaudeCodeBridge extends EventEmitter {
         this._isRunning = false;
         this.process = null;
 
-        const fullOutput = output.join('');
+        // Process remaining buffer
+        if (lineBuffer.trim()) {
+          this.parseStreamLine(lineBuffer.trim(), resultParts);
+        }
+
+        const fullOutput = resultParts.join('');
 
         if (code === 0) {
           logger.info({ outputLength: fullOutput.length }, 'Claude Code command completed');
@@ -117,6 +129,69 @@ export class ClaudeCodeBridge extends EventEmitter {
       this._isRunning = false;
       this.process = null;
       logger.info('Claude Code process killed');
+    }
+  }
+
+  private parseStreamLine(line: string, resultParts: string[]): void {
+    try {
+      const event = JSON.parse(line) as Record<string, unknown>;
+      const type = event.type as string;
+
+      if (type === 'assistant' && event.message) {
+        const msg = event.message as Record<string, unknown>;
+        const content = msg.content;
+        if (typeof content === 'string') {
+          resultParts.push(content);
+          this.emit('output', { type: 'assistant', content, timestamp: Date.now() } satisfies OutputChunk);
+        } else if (Array.isArray(content)) {
+          for (const block of content) {
+            const b = block as Record<string, unknown>;
+            if (b.type === 'text' && typeof b.text === 'string') {
+              resultParts.push(b.text);
+              this.emit('output', { type: 'text', content: b.text, timestamp: Date.now() } satisfies OutputChunk);
+            } else if (b.type === 'tool_use') {
+              const toolName = (b.name as string) ?? 'unknown';
+              const input = b.input as Record<string, unknown> | undefined;
+              const summary = this.summarizeTool(toolName, input);
+              this.emit('output', { type: 'tool_use', content: summary, toolName, timestamp: Date.now() } satisfies OutputChunk);
+            }
+          }
+        }
+      } else if (type === 'result') {
+        const result = (event.result as string) ?? '';
+        if (result && !resultParts.includes(result)) {
+          resultParts.push(result);
+        }
+        this.emit('output', { type: 'result', content: result, timestamp: Date.now() } satisfies OutputChunk);
+      } else if (type === 'system') {
+        const msg = (event.message as string) ?? '';
+        this.emit('output', { type: 'system', content: msg, timestamp: Date.now() } satisfies OutputChunk);
+      }
+    } catch {
+      // Not valid JSON — treat as raw text
+      resultParts.push(line);
+      this.emit('output', { type: 'text', content: line, timestamp: Date.now() } satisfies OutputChunk);
+    }
+  }
+
+  private summarizeTool(toolName: string, input?: Record<string, unknown>): string {
+    switch (toolName) {
+      case 'Read':
+        return `Reading ${input?.file_path ?? 'file'}`;
+      case 'Write':
+        return `Writing ${input?.file_path ?? 'file'}`;
+      case 'Edit':
+        return `Editing ${input?.file_path ?? 'file'}`;
+      case 'Bash':
+        return `Running: ${((input?.command as string) ?? '').slice(0, 80)}`;
+      case 'Glob':
+        return `Searching files: ${input?.pattern ?? ''}`;
+      case 'Grep':
+        return `Searching code: ${input?.pattern ?? ''}`;
+      case 'Task':
+        return `Running subtask: ${((input?.description as string) ?? '').slice(0, 60)}`;
+      default:
+        return `Using tool: ${toolName}`;
     }
   }
 }

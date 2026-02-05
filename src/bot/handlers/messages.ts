@@ -30,7 +30,10 @@ export function createMessageHandler(config: AureliaConfig, engine?: AureliaEngi
     }
 
     // Send processing indicator
-    const processingMsg = await ctx.reply('Processing...');
+    const processingMsg = await ctx.reply('⏳ Analyzing your request...');
+    const progressLines: string[] = [];
+    let lastUpdateTime = 0;
+    const MIN_UPDATE_INTERVAL = 2000; // Max 1 edit per 2 seconds (Telegram rate limit)
 
     try {
       const result = await engine.processMessage(
@@ -38,10 +41,26 @@ export function createMessageHandler(config: AureliaConfig, engine?: AureliaEngi
         accessToken,
         text,
         (event) => {
-          // Update processing message with progress
-          if (event.type === 'output' && event.content && processingMsg.chat?.id) {
-            ctx.api.editMessageText(processingMsg.chat.id, processingMsg.message_id, `Processing...\n\n${event.content.slice(0, 200)}`).catch(() => {});
+          if (!event.content || !processingMsg.chat?.id) return;
+
+          // Collect progress lines for tool_use and text events
+          if (event.type === 'output') {
+            const line = event.content.slice(0, 100);
+            progressLines.push(line);
+            if (progressLines.length > 8) progressLines.shift();
           }
+
+          // Throttle Telegram message edits
+          const now = Date.now();
+          if (now - lastUpdateTime < MIN_UPDATE_INTERVAL) return;
+          lastUpdateTime = now;
+
+          const statusText = '⚙️ Claude Code working...\n\n' + progressLines.map((l) => `• ${l}`).join('\n');
+          ctx.api.editMessageText(
+            processingMsg.chat.id,
+            processingMsg.message_id,
+            statusText.slice(0, 4000),
+          ).catch(() => {});
         },
       );
 
