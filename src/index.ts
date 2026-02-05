@@ -12,3 +12,8 @@ export { AureliaEngine } from './core/engine.js';
 export type { EngineContext, EngineResult } from './core/engine.js';
 export { SessionManager } from './session/manager.js';
 export type { UserSession, SessionManagerOptions } from './session/manager.js';
+export { splitMessage, codeBlock, escapeMarkdownV2, formatADEOutput } from './bot/utils/formatter.js';
+export { approvalKeyboard, agentSelectionKeyboard, retryKeyboard, confirmKeyboard, parseCallbackData } from './bot/utils/keyboards.js';
+export { startTypingIndicator, sendFileAsDocument, sendLongMessage } from './bot/utils/telegram.js';
+export { createRateLimitMiddleware } from './bot/middleware/rate-limit.js';
+export type { RateLimitOptions } from './bot/middleware/rate-limit.js';
