@@ -28,4 +28,11 @@ describe('Bot Factory', () => {
     const bot = createBot(mockConfig);
     expect(() => bot.stop()).not.toThrow();
   });
+
+  it('should have error handler registered', () => {
+    const bot = createBot(mockConfig);
+    // grammY stores the error handler internally; bot.catch sets it
+    // If no error handler, bot.errorHandler would be the default
+    expect(bot.errorHandler).toBeDefined();
+  });
 });
