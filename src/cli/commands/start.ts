@@ -3,6 +3,8 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { loadConfig } from '../../config/manager.js';
 import { createBot } from '../../bot/index.js';
+import { AureliaEngine } from '../../core/engine.js';
+import { SessionManager } from '../../session/manager.js';
 import { logger } from '../../utils/logger.js';
 
 const PID_DIR = '.aurelia';
@@ -25,7 +27,13 @@ export function createStartCommand(): Command {
         return;
       }
 
-      const bot = createBot(config);
+      const engine = new AureliaEngine();
+      const sessionManager = new SessionManager({ defaultProject: config.projectPath });
+      const bot = createBot(config, {
+        engine,
+        sessionManager,
+        jobManager: engine.getJobManager(),
+      });
 
       // Write PID file
       const pidPath = getPidPath(config.projectPath);
