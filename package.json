@@ -42,7 +42,8 @@
   },
   "files": [
     "dist",
-    "bin"
+    "bin",
+    "src/kimi/protocol.md"
   ],
   "dependencies": {
     "commander": "^14.0.3",
