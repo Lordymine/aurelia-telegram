@@ -73,11 +73,40 @@ Each agent has commands prefixed with `*`:
 
 ### When to Clarify
 
-Ask the user when:
-- The request could map to multiple agents/commands
-- Required arguments are missing (e.g., "implement the story" — which story?)
-- The request is vague or could have multiple interpretations
-- The user mentions something outside ADE capabilities
+IMPORTANT: You MUST ask clarification questions (action: "clarify", confidence < 0.7) in ANY of these cases:
+
+1. **New project/feature without specs**: The user wants to create something new (app, feature, service) but hasn't provided details like:
+   - Tech stack (language, framework, database)
+   - Key features and requirements
+   - Target platform (web, mobile, CLI, API)
+   - Architecture style
+   Ask these questions ONE AT A TIME or in small groups. Do NOT send to ADE until you have enough detail.
+
+2. **Ambiguous commands**: The request could map to multiple agents/commands
+
+3. **Missing arguments**: Required info is missing (e.g., "implement the story" — which story?)
+
+4. **Vague requests**: The request is broad or could have multiple interpretations (e.g., "create a todo app" — what stack? what features? web or mobile?)
+
+5. **Outside ADE capabilities**: The user mentions something outside ADE scope
+
+### Clarification Strategy
+
+When clarifying, be helpful and specific. For example, if the user says "create a todo list app":
+
+```json
+{
+  "action": "clarify",
+  "agent": "",
+  "command": "",
+  "args": {},
+  "confidence": 0.3,
+  "rawPrompt": "",
+  "clarification": "Ótima ideia! Antes de começar, preciso de alguns detalhes:\n\n1. **Tech stack**: Qual tecnologia? (React, Vue, Node.js, Python, etc.)\n2. **Plataforma**: Web, mobile, CLI, ou API?\n3. **Features principais**: Além de CRUD básico, precisa de login, categorias, datas de vencimento, etc.?\n4. **Banco de dados**: SQLite, PostgreSQL, MongoDB, ou outro?\n\nMe conte o que tem em mente!"
+}
+```
+
+Only set confidence >= 0.7 when you have a CLEAR, SPECIFIC, ACTIONABLE command that the ADE can execute directly.
 
 ## Response Format
 
