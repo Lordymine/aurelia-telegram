@@ -2,8 +2,9 @@ import type { CommandContext, Context } from 'grammy';
 import type { AureliaConfig } from '../../config/schema.js';
 import { logger } from '../../utils/logger.js';
 import { requestDeviceCode, pollForToken, saveTokensToConfig, isTokenExpired } from '../../kimi/auth.js';
+import type { JobManager } from '../../bridge/job-manager.js';
 
-export function createCommandHandlers(config: AureliaConfig) {
+export function createCommandHandlers(config: AureliaConfig, jobManager?: JobManager) {
   async function handleStart(ctx: CommandContext<Context>): Promise<void> {
     logger.info({ userId: ctx.from?.id }, '/start command');
     const name = ctx.from?.first_name ?? 'there';
@@ -24,7 +25,9 @@ export function createCommandHandlers(config: AureliaConfig) {
         `/help — Show this help message\n` +
         `/status — Show bot status and connections\n` +
         `/auth — Authenticate with Kimi for Coding\n` +
-        `/auth_status — Check Kimi authentication status\n\n` +
+        `/auth_status — Check Kimi authentication status\n` +
+        `/jobs — List active and recent jobs\n` +
+        `/cancel — Cancel the current running job\n\n` +
         `You can also send any text message and I will echo it back.\n` +
         `In the future, messages will be translated by Kimi and executed via ADE.`,
     );
@@ -105,5 +108,71 @@ export function createCommandHandlers(config: AureliaConfig) {
     await ctx.reply(`Kimi: Authenticated ✅\nToken expires in: ${expiresIn} minutes`);
   }
 
-  return { handleStart, handleHelp, handleStatus, handleAuth, handleAuthStatus };
+  async function handleJobs(ctx: CommandContext<Context>): Promise<void> {
+    logger.info({ userId: ctx.from?.id }, '/jobs command');
+
+    if (!jobManager) {
+      await ctx.reply('Job manager not available.');
+      return;
+    }
+
+    const userId = ctx.from?.id;
+    const active = jobManager.getActiveJobs(userId);
+    const recent = jobManager.getRecentJobs(userId, 5);
+
+    if (active.length === 0 && recent.length === 0) {
+      await ctx.reply('No jobs found.');
+      return;
+    }
+
+    let text = '';
+    if (active.length > 0) {
+      text += 'Active jobs:\n';
+      for (const job of active) {
+        text += `• ${job.id.slice(0, 8)} — ${job.status} — ${job.command.slice(0, 50)}\n`;
+      }
+      text += '\n';
+    }
+
+    if (recent.length > 0) {
+      text += 'Recent jobs:\n';
+      for (const job of recent) {
+        const duration = job.completedAt && job.startedAt
+          ? `${Math.round((job.completedAt - job.startedAt) / 1000)}s`
+          : '-';
+        text += `• ${job.id.slice(0, 8)} — ${job.status} — ${duration}\n`;
+      }
+    }
+
+    await ctx.reply(text.trim());
+  }
+
+  async function handleCancel(ctx: CommandContext<Context>): Promise<void> {
+    logger.info({ userId: ctx.from?.id }, '/cancel command');
+
+    if (!jobManager) {
+      await ctx.reply('Job manager not available.');
+      return;
+    }
+
+    const userId = ctx.from?.id;
+    const active = jobManager.getActiveJobs(userId);
+
+    if (active.length === 0) {
+      await ctx.reply('No active jobs to cancel.');
+      return;
+    }
+
+    // Cancel the most recent active job
+    const job = active[0]!;
+    const cancelled = jobManager.cancelJob(job.id);
+
+    if (cancelled) {
+      await ctx.reply(`Cancelled job ${job.id.slice(0, 8)}.`);
+    } else {
+      await ctx.reply(`Could not cancel job ${job.id.slice(0, 8)}.`);
+    }
+  }
+
+  return { handleStart, handleHelp, handleStatus, handleAuth, handleAuthStatus, handleJobs, handleCancel };
 }

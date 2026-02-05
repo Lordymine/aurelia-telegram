@@ -4,8 +4,9 @@ import { createAuthMiddleware } from './middleware/auth.js';
 import { createCommandHandlers } from './handlers/commands.js';
 import { handleMessage } from './handlers/messages.js';
 import { logger } from '../utils/logger.js';
+import type { JobManager } from '../bridge/job-manager.js';
 
-export function createBot(config: AureliaConfig): Bot {
+export function createBot(config: AureliaConfig, jobManager?: JobManager): Bot {
   const bot = new Bot(config.botToken);
 
   // Error handler
@@ -18,12 +19,14 @@ export function createBot(config: AureliaConfig): Bot {
   bot.use(createAuthMiddleware(config));
 
   // Command handlers
-  const { handleStart, handleHelp, handleStatus, handleAuth, handleAuthStatus } = createCommandHandlers(config);
+  const { handleStart, handleHelp, handleStatus, handleAuth, handleAuthStatus, handleJobs, handleCancel } = createCommandHandlers(config, jobManager);
   bot.command('start', handleStart);
   bot.command('help', handleHelp);
   bot.command('status', handleStatus);
   bot.command('auth', handleAuth);
   bot.command('auth_status', handleAuthStatus);
+  bot.command('jobs', handleJobs);
+  bot.command('cancel', handleCancel);
 
   // Echo handler for text messages (placeholder for Kimi translation)
   bot.on('message:text', handleMessage);
