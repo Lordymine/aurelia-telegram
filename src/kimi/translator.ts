@@ -45,7 +45,7 @@ export async function translateUserToADE(
     const parsed = JSON.parse(jsonStr) as ADECommand;
 
     // Validate required fields
-    if (!parsed.action || !parsed.confidence) {
+    if (!parsed.action || typeof parsed.confidence !== 'number') {
       throw new Error('Missing required fields in ADE command');
     }
 

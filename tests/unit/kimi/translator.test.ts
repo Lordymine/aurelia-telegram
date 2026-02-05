@@ -45,6 +45,24 @@ describe('Kimi Translator', () => {
       expect(result.confidence).toBe(0.8);
     });
 
+    it('should handle clarify action with confidence 0', async () => {
+      const clarifyResponse = {
+        action: 'clarify',
+        agent: '',
+        command: '',
+        args: {},
+        confidence: 0,
+        rawPrompt: 'ola',
+        clarification: 'Hello! How can I help you today?',
+      };
+      vi.mocked(chatCompletion).mockResolvedValue('```json\n' + JSON.stringify(clarifyResponse) + '\n```');
+
+      const result = await translateUserToADE('token', 'ola');
+      expect(result.action).toBe('clarify');
+      expect(result.confidence).toBe(0);
+      expect(result.clarification).toBe('Hello! How can I help you today?');
+    });
+
     it('should return clarify action on parse error', async () => {
       vi.mocked(chatCompletion).mockResolvedValue('I do not understand this request');
 
