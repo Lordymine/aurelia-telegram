@@ -1,0 +1,38 @@
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# Dependencies
+node_modules/
+
+# Build & Output
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
+*.log
+logs/
+
+# Test Coverage
+coverage/
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# AIOS Local
+.aios-core/local/
+.aios/install-log.txt
+.aurelia/
+
+# AI/Agent local state
+.ai/
+.claude/settings.local.json
