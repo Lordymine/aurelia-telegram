@@ -18,10 +18,12 @@ export function createBot(config: AureliaConfig): Bot {
   bot.use(createAuthMiddleware(config));
 
   // Command handlers
-  const { handleStart, handleHelp, handleStatus } = createCommandHandlers(config);
+  const { handleStart, handleHelp, handleStatus, handleAuth, handleAuthStatus } = createCommandHandlers(config);
   bot.command('start', handleStart);
   bot.command('help', handleHelp);
   bot.command('status', handleStatus);
+  bot.command('auth', handleAuth);
+  bot.command('auth_status', handleAuthStatus);
 
   // Echo handler for text messages (placeholder for Kimi translation)
   bot.on('message:text', handleMessage);
