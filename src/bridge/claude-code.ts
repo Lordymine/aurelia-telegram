@@ -45,7 +45,7 @@ export class ClaudeCodeBridge extends EventEmitter {
 
     const { cwd, timeout = DEFAULT_TIMEOUT, allowedTools, appendSystemPrompt } = options;
 
-    const args = ['--print', '--verbose', '--output-format', 'stream-json'];
+    const args = ['--print', '--verbose', '--output-format', 'stream-json', '--dangerously-skip-permissions'];
     if (allowedTools) {
       args.push('--allowedTools', allowedTools.join(','));
     }
