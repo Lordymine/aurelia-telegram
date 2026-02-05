@@ -2,6 +2,7 @@ import type { Context } from 'grammy';
 import { logger } from '../../utils/logger.js';
 import type { AureliaEngine } from '../../core/engine.js';
 import type { AureliaConfig } from '../../config/schema.js';
+import { ensureAuthenticated } from '../../kimi/auth.js';
 
 export function createMessageHandler(config: AureliaConfig, engine?: AureliaEngine) {
   return async function handleMessage(ctx: Context): Promise<void> {
@@ -17,10 +18,14 @@ export function createMessageHandler(config: AureliaConfig, engine?: AureliaEngi
       return;
     }
 
-    // Check Kimi auth
-    const accessToken = config.kimi.accessToken;
-    if (!accessToken) {
-      await ctx.reply('Please authenticate with Kimi first using /auth');
+    // Ensure Kimi auth (refreshes token automatically if expired)
+    let accessToken: string;
+    try {
+      accessToken = await ensureAuthenticated();
+      // Update in-memory config with refreshed token
+      config.kimi.accessToken = accessToken;
+    } catch {
+      await ctx.reply('Kimi not authenticated. Use /auth to authenticate.');
       return;
     }
 
