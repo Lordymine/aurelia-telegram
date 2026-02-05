@@ -6,11 +6,19 @@ import { handleMessage, createMessageHandler } from './handlers/messages.js';
 import { logger } from '../utils/logger.js';
 import type { JobManager } from '../bridge/job-manager.js';
 import type { AureliaEngine } from '../core/engine.js';
+import type { SessionManager } from '../session/manager.js';
 
-export function createBot(config: AureliaConfig, options?: { jobManager?: JobManager; engine?: AureliaEngine }): Bot {
+export interface CreateBotOptions {
+  jobManager?: JobManager;
+  engine?: AureliaEngine;
+  sessionManager?: SessionManager;
+}
+
+export function createBot(config: AureliaConfig, options?: CreateBotOptions): Bot {
   const bot = new Bot(config.botToken);
   const jobManager = options?.jobManager ?? options?.engine?.getJobManager();
   const engine = options?.engine;
+  const sessionManager = options?.sessionManager;
 
   // Error handler
   bot.catch((err) => {
@@ -22,14 +30,16 @@ export function createBot(config: AureliaConfig, options?: { jobManager?: JobMan
   bot.use(createAuthMiddleware(config));
 
   // Command handlers
-  const { handleStart, handleHelp, handleStatus, handleAuth, handleAuthStatus, handleJobs, handleCancel } = createCommandHandlers(config, jobManager);
-  bot.command('start', handleStart);
-  bot.command('help', handleHelp);
-  bot.command('status', handleStatus);
-  bot.command('auth', handleAuth);
-  bot.command('auth_status', handleAuthStatus);
-  bot.command('jobs', handleJobs);
-  bot.command('cancel', handleCancel);
+  const handlers = createCommandHandlers(config, jobManager, sessionManager);
+  bot.command('start', handlers.handleStart);
+  bot.command('help', handlers.handleHelp);
+  bot.command('status', handlers.handleStatus);
+  bot.command('auth', handlers.handleAuth);
+  bot.command('auth_status', handlers.handleAuthStatus);
+  bot.command('jobs', handlers.handleJobs);
+  bot.command('cancel', handlers.handleCancel);
+  bot.command('switch_project', handlers.handleSwitchProject);
+  bot.command('whoami', handlers.handleWhoami);
 
   // Message handler: use engine if available, otherwise echo
   if (engine) {

@@ -10,3 +10,5 @@ export { JobManager } from './bridge/job-manager.js';
 export type { Job, JobStatus, JobProgressEvent } from './bridge/job-manager.js';
 export { AureliaEngine } from './core/engine.js';
 export type { EngineContext, EngineResult } from './core/engine.js';
+export { SessionManager } from './session/manager.js';
+export type { UserSession, SessionManagerOptions } from './session/manager.js';

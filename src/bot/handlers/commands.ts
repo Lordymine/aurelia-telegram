@@ -3,8 +3,9 @@ import type { AureliaConfig } from '../../config/schema.js';
 import { logger } from '../../utils/logger.js';
 import { requestDeviceCode, pollForToken, saveTokensToConfig, isTokenExpired } from '../../kimi/auth.js';
 import type { JobManager } from '../../bridge/job-manager.js';
+import type { SessionManager } from '../../session/manager.js';
 
-export function createCommandHandlers(config: AureliaConfig, jobManager?: JobManager) {
+export function createCommandHandlers(config: AureliaConfig, jobManager?: JobManager, sessionManager?: SessionManager) {
   async function handleStart(ctx: CommandContext<Context>): Promise<void> {
     logger.info({ userId: ctx.from?.id }, '/start command');
     const name = ctx.from?.first_name ?? 'there';
@@ -27,9 +28,10 @@ export function createCommandHandlers(config: AureliaConfig, jobManager?: JobMan
         `/auth — Authenticate with Kimi for Coding\n` +
         `/auth_status — Check Kimi authentication status\n` +
         `/jobs — List active and recent jobs\n` +
-        `/cancel — Cancel the current running job\n\n` +
-        `You can also send any text message and I will echo it back.\n` +
-        `In the future, messages will be translated by Kimi and executed via ADE.`,
+        `/cancel — Cancel the current running job\n` +
+        `/switch_project — Switch active project\n` +
+        `/whoami — Show your session info\n\n` +
+        `Send any text message to interact with ADE via Kimi translation.`,
     );
   }
 
@@ -174,5 +176,54 @@ export function createCommandHandlers(config: AureliaConfig, jobManager?: JobMan
     }
   }
 
-  return { handleStart, handleHelp, handleStatus, handleAuth, handleAuthStatus, handleJobs, handleCancel };
+  async function handleSwitchProject(ctx: CommandContext<Context>): Promise<void> {
+    logger.info({ userId: ctx.from?.id }, '/switch_project command');
+
+    if (!sessionManager) {
+      await ctx.reply('Session manager not available.');
+      return;
+    }
+
+    const text = ctx.message?.text ?? '';
+    const path = text.replace(/^\/switch_project\s*/, '').trim();
+
+    if (!path) {
+      await ctx.reply('Usage: /switch_project /path/to/project');
+      return;
+    }
+
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    sessionManager.switchProject(userId, path);
+    await ctx.reply(`Switched active project to: ${path}`);
+  }
+
+  async function handleWhoami(ctx: CommandContext<Context>): Promise<void> {
+    logger.info({ userId: ctx.from?.id }, '/whoami command');
+
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    if (!sessionManager) {
+      await ctx.reply(`User ID: ${userId}\nName: ${ctx.from?.first_name ?? 'Unknown'}`);
+      return;
+    }
+
+    const session = sessionManager.getOrCreateSession(userId);
+    const uptimeMs = Date.now() - session.createdAt;
+    const uptimeMin = Math.floor(uptimeMs / 60000);
+
+    await ctx.reply(
+      `User: ${ctx.from?.first_name ?? 'Unknown'}\n` +
+        `ID: ${userId}\n` +
+        `Project: ${session.activeProject}\n` +
+        `Authenticated: ${session.authenticated ? 'Yes' : 'No'}\n` +
+        `History: ${session.conversationHistory.length} messages\n` +
+        `Active job: ${session.activeJobId ?? 'None'}\n` +
+        `Session age: ${uptimeMin} minutes`,
+    );
+  }
+
+  return { handleStart, handleHelp, handleStatus, handleAuth, handleAuthStatus, handleJobs, handleCancel, handleSwitchProject, handleWhoami };
 }
