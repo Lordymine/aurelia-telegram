@@ -2,12 +2,15 @@ import { Bot } from 'grammy';
 import type { AureliaConfig } from '../config/schema.js';
 import { createAuthMiddleware } from './middleware/auth.js';
 import { createCommandHandlers } from './handlers/commands.js';
-import { handleMessage } from './handlers/messages.js';
+import { handleMessage, createMessageHandler } from './handlers/messages.js';
 import { logger } from '../utils/logger.js';
 import type { JobManager } from '../bridge/job-manager.js';
+import type { AureliaEngine } from '../core/engine.js';
 
-export function createBot(config: AureliaConfig, jobManager?: JobManager): Bot {
+export function createBot(config: AureliaConfig, options?: { jobManager?: JobManager; engine?: AureliaEngine }): Bot {
   const bot = new Bot(config.botToken);
+  const jobManager = options?.jobManager ?? options?.engine?.getJobManager();
+  const engine = options?.engine;
 
   // Error handler
   bot.catch((err) => {
@@ -28,8 +31,12 @@ export function createBot(config: AureliaConfig, jobManager?: JobManager): Bot {
   bot.command('jobs', handleJobs);
   bot.command('cancel', handleCancel);
 
-  // Echo handler for text messages (placeholder for Kimi translation)
-  bot.on('message:text', handleMessage);
+  // Message handler: use engine if available, otherwise echo
+  if (engine) {
+    bot.on('message:text', createMessageHandler(config, engine));
+  } else {
+    bot.on('message:text', handleMessage);
+  }
 
   return bot;
 }

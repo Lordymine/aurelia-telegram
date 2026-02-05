@@ -8,3 +8,5 @@ export type { AureliaConfig } from './config/schema.js';
 export { ClaudeCodeBridge } from './bridge/claude-code.js';
 export { JobManager } from './bridge/job-manager.js';
 export type { Job, JobStatus, JobProgressEvent } from './bridge/job-manager.js';
+export { AureliaEngine } from './core/engine.js';
+export type { EngineContext, EngineResult } from './core/engine.js';
