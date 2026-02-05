@@ -1,8 +1,26 @@
+import { hostname, platform, arch, release } from 'node:os';
+import { randomUUID } from 'node:crypto';
 import { logger } from '../utils/logger.js';
 
 const KIMI_API_BASE = process.env.KIMI_CODE_BASE_URL ?? 'https://api.kimi.com/coding/v1';
 const CHAT_ENDPOINT = `${KIMI_API_BASE}/chat/completions`;
 const DEFAULT_MODEL = 'kimi-k2.5';
+const VERSION = '1.0.0';
+const DEVICE_ID = randomUUID();
+
+function getCommonHeaders(accessToken: string): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${accessToken}`,
+    'User-Agent': `KimiCLI/${VERSION}`,
+    'X-Msh-Platform': 'kimi_cli',
+    'X-Msh-Version': VERSION,
+    'X-Msh-Device-Name': hostname(),
+    'X-Msh-Device-Model': `${platform()}/${arch()}`,
+    'X-Msh-Os-Version': release(),
+    'X-Msh-Device-Id': DEVICE_ID,
+  };
+}
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -37,10 +55,7 @@ export async function chatCompletion(
 
   const response = await fetch(CHAT_ENDPOINT, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: getCommonHeaders(accessToken),
     body: JSON.stringify({
       model,
       messages,
