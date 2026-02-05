@@ -1,0 +1,59 @@
+schema: 1
+story: '1.3'
+story_title: 'CLI & Interactive Setup Wizard'
+gate: PASS
+status_reason: 'All 8 ACs fully implemented and tested. CLI structure is clean with proper command separation. Init wizard correctly validates bot tokens via Telegram API, parses telegram IDs, detects AIOS projects, and saves config with encryption metadata. 33 new tests (77 total) cover validation functions, wizard flow, CLI structure, and bot factory.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-02-05T18:25:00Z'
+
+top_issues:
+  - severity: medium
+    description: 'config set bypasses Zod validation — invalid values can be written to config file'
+    suggested_owner: dev
+    refs: ['src/cli/commands/config.ts:114']
+  - severity: low
+    description: 'isProcessRunning function duplicated in stop.ts and status.ts'
+    suggested_owner: dev
+    refs: ['src/cli/commands/stop.ts:9-15', 'src/cli/commands/status.ts:9-15']
+  - severity: low
+    description: 'PID_DIR/PID_FILE constants duplicated across 3 command files'
+    suggested_owner: dev
+    refs: ['src/cli/commands/start.ts:8-9', 'src/cli/commands/stop.ts:6-7', 'src/cli/commands/status.ts:6-7']
+
+waiver: { active: false }
+
+quality_score: 90
+expires: '2026-02-19T18:25:00Z'
+
+evidence:
+  tests_reviewed: 33
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Bot tokens not logged, sensitive fields masked in config list, saveConfig handles encryption'
+  performance:
+    status: PASS
+    notes: 'No hot-path concerns, PID file I/O only at startup/shutdown'
+  reliability:
+    status: PASS
+    notes: 'Graceful SIGINT/SIGTERM shutdown, stale PID detection, readline closed in finally block'
+  maintainability:
+    status: PASS
+    notes: 'Clean module structure, commands in separate files, validation functions exported and testable'
+
+recommendations:
+  immediate: []
+  future:
+    - action: 'Add Zod re-validation in config set before saving to prevent invalid config writes'
+      refs: ['src/cli/commands/config.ts:114']
+    - action: 'Extract shared PID utilities (isProcessRunning, PID_DIR, PID_FILE, getPidPath) to src/cli/utils/pid.ts'
+      refs: ['src/cli/commands/start.ts', 'src/cli/commands/stop.ts', 'src/cli/commands/status.ts']
+    - action: 'Add unit tests for config get/set/list and stop/status command handlers'
+      refs: ['tests/unit/cli/']
+    - action: 'Import unlink statically in start.ts instead of dynamic import in shutdown handler'
+      refs: ['src/cli/commands/start.ts:40']

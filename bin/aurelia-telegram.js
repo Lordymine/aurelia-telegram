@@ -1,2 +1,4 @@
 #!/usr/bin/env node
-import '../dist/cli/index.js';
+import { createCLI } from '../dist/cli/index.js';
+
+createCLI().parse();

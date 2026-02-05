@@ -1,5 +1,10 @@
 import { Command } from 'commander';
 import { VERSION } from '../index.js';
+import { createInitCommand } from './commands/init.js';
+import { createStartCommand } from './commands/start.js';
+import { createStopCommand } from './commands/stop.js';
+import { createStatusCommand } from './commands/status.js';
+import { createConfigCommand } from './commands/config.js';
 
 export function createCLI(): Command {
   const program = new Command();
@@ -9,10 +14,11 @@ export function createCLI(): Command {
     .description('Telegram bot gateway to AIOS ADE via Kimi LLM translation')
     .version(VERSION);
 
-  // TODO: Add subcommands in Story 1.2+
-  // - aurelia-telegram init
-  // - aurelia-telegram start
-  // - aurelia-telegram auth
+  program.addCommand(createInitCommand());
+  program.addCommand(createStartCommand());
+  program.addCommand(createStopCommand());
+  program.addCommand(createStatusCommand());
+  program.addCommand(createConfigCommand());
 
   return program;
 }
