@@ -6,6 +6,68 @@ import type { ChatMessage } from '../kimi/client.js';
 const CONFIDENCE_THRESHOLD = 0.7;
 const MAX_HISTORY = 20;
 
+// Patterns that indicate a development/ADE command (should go to Kimi)
+const DEV_PATTERNS = [
+  /\b(implement|create|build|develop|code|fix|bug|refactor|test|deploy|push|commit|merge|release)\b/i,
+  /\b(implementa|cria|desenvolv|corrig|bug|refator|test|deploy|publica|commit)\b/i,
+  /\b(story|epic|prd|sprint|backlog|feature|issue|pr|pull.?request)\b/i,
+  /\b(npm|node|git|docker|api|database|server|endpoint|route|component|module)\b/i,
+  /\b(error|exception|stack.?trace|log|debug|lint|typecheck|build)\b/i,
+  /\b(arquivo|pasta|diretório|função|classe|variável|método|banco|tabela)\b/i,
+  /@(dev|qa|sm|po|pm|architect|devops|analyst)\b/i,
+  /\*\w+/, // agent commands like *develop, *review
+];
+
+// Quick local responses for conversational messages
+const GREETING_PATTERNS: Array<{ pattern: RegExp; responses: string[] }> = [
+  {
+    pattern: /^(oi|olá|ola|hey|hi|hello|e aí|eai|fala|salve|bom dia|boa tarde|boa noite)\b/i,
+    responses: [
+      'Olá! Sou a Aurelia, sua gateway para o ADE. Posso ajudar com tarefas de desenvolvimento — implementar stories, corrigir bugs, rodar testes, etc. O que precisa?',
+      'Oi! Estou pronta para ajudar com desenvolvimento. Me diga o que precisa — implementar, corrigir, testar, revisar código...',
+    ],
+  },
+  {
+    pattern: /^(tudo bem|como vai|como está|tudo certo|beleza)\b\??$/i,
+    responses: [
+      'Tudo certo! Pronta para ajudar. Me diga o que precisa desenvolver.',
+    ],
+  },
+  {
+    pattern: /^(obrigad[oa]|thanks|thank you|valeu|vlw)\b/i,
+    responses: [
+      'De nada! Se precisar de mais alguma coisa, é só chamar.',
+    ],
+  },
+  {
+    pattern: /^(ajuda|help|o que você faz|what can you do)\b\??$/i,
+    responses: [
+      'Sou a Aurelia — uma bridge entre Telegram e o ADE (Autonomous Development Engine).\n\n' +
+        'Posso ajudar com:\n' +
+        '• Implementar user stories\n' +
+        '• Corrigir bugs no código\n' +
+        '• Rodar testes e lint\n' +
+        '• Revisar código\n' +
+        '• Qualquer tarefa de desenvolvimento\n\n' +
+        'Basta descrever o que precisa em linguagem natural!',
+    ],
+  },
+];
+
+function isDevMessage(text: string): boolean {
+  return DEV_PATTERNS.some((p) => p.test(text));
+}
+
+function getQuickResponse(text: string): string | null {
+  const trimmed = text.trim();
+  for (const { pattern, responses } of GREETING_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      return responses[Math.floor(Math.random() * responses.length)]!;
+    }
+  }
+  return null;
+}
+
 export interface EngineContext {
   userId: number;
   accessToken: string;
@@ -56,6 +118,14 @@ export class AureliaEngine {
     }
 
     logger.info({ userId, messageLength: message.length }, 'Processing message');
+
+    // Step 0: Quick local response for conversational messages (no API call)
+    const quickReply = getQuickResponse(message);
+    if (quickReply && !isDevMessage(message)) {
+      logger.info({ userId }, 'Quick local response (no Kimi call)');
+      ctx.conversationHistory.push({ role: 'assistant', content: quickReply });
+      return { messages: [quickReply] };
+    }
 
     // Step 1: Translate user message to ADE command via Kimi
     const command = await translateUserToADE(accessToken, message, ctx.conversationHistory);
