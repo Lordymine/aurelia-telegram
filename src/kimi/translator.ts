@@ -76,10 +76,21 @@ export async function translateADEToUser(
         'You are translating ADE (development engine) output into a user-friendly Telegram message.\n' +
         'Rules:\n' +
         '- Keep it concise (under 3000 chars)\n' +
-        '- Use Telegram-compatible markdown\n' +
-        '- Summarize long outputs\n' +
-        '- Highlight key results, errors, or next steps\n' +
-        '- Never expose internal errors or API keys',
+        '- Respond in the same language the user used (Portuguese BR or English)\n' +
+        '- Use ONLY Telegram-compatible markdown (NOT GitHub markdown):\n' +
+        '  * *bold* (single asterisk, NOT double)\n' +
+        '  * _italic_ (single underscore)\n' +
+        '  * `inline code` (backticks)\n' +
+        '  * ```code blocks``` (triple backticks)\n' +
+        '  * NO # headers (use *bold* instead)\n' +
+        '  * NO [links](url) (write URL directly)\n' +
+        '  * NO > blockquotes\n' +
+        '- Summarize long outputs — focus on what was DONE and what the NEXT STEPS are\n' +
+        '- Use bullet points (•) for lists\n' +
+        '- If the ADE created files, list the key files created\n' +
+        '- If there was an error, explain it simply and suggest what to do\n' +
+        '- Mention the project workspace path so user knows where code is\n' +
+        '- Never expose internal errors, stack traces, or API keys',
     },
     {
       role: 'user',
@@ -90,7 +101,32 @@ export async function translateADEToUser(
   logger.debug({ outputLength: adeOutput.length }, 'Translating ADE output to user');
 
   const response = await chatCompletion(accessToken, messages);
-  return response;
+  return sanitizeForTelegram(response);
+}
+
+/**
+ * Sanitize text for Telegram markdown compatibility.
+ * Converts common GitHub/standard markdown patterns to Telegram-safe equivalents.
+ */
+export function sanitizeForTelegram(text: string): string {
+  let result = text;
+
+  // Convert ## headers to *bold*
+  result = result.replace(/^#{1,6}\s+(.+)$/gm, '*$1*');
+
+  // Convert **bold** (double asterisk) to *bold* (single asterisk)
+  result = result.replace(/\*\*(.+?)\*\*/g, '*$1*');
+
+  // Convert [text](url) links to just "text (url)"
+  result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)');
+
+  // Convert > blockquotes to plain text with "│ " prefix
+  result = result.replace(/^>\s?(.*)$/gm, '│ $1');
+
+  // Convert - list items to • bullets
+  result = result.replace(/^(\s*)[-*]\s+/gm, '$1• ');
+
+  return result;
 }
 
 export function splitMessage(text: string): string[] {

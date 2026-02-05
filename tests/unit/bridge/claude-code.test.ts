@@ -75,7 +75,7 @@ describe('ClaudeCodeBridge', () => {
       expect(result).toBe('Hello response');
       expect(spawn).toHaveBeenCalledWith(
         'claude',
-        ['--print', '--output-format', 'stream-json'],
+        ['--print', '--verbose', '--output-format', 'stream-json'],
         expect.objectContaining({
           stdio: ['pipe', 'pipe', 'pipe'],
           shell: true,
@@ -95,7 +95,7 @@ describe('ClaudeCodeBridge', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         'claude',
-        ['--print', '--output-format', 'stream-json', '--allowedTools', 'Read,Write'],
+        ['--print', '--verbose', '--output-format', 'stream-json', '--allowedTools', 'Read,Write'],
         expect.any(Object),
       );
     });
@@ -110,7 +110,7 @@ describe('ClaudeCodeBridge', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         'claude',
-        ['--print', '--output-format', 'stream-json', '--append-system-prompt', 'extra context'],
+        ['--print', '--verbose', '--output-format', 'stream-json', '--append-system-prompt', 'extra context'],
         expect.any(Object),
       );
     });

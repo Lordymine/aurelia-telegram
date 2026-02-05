@@ -60,10 +60,14 @@ describe('JobManager', () => {
       expect(job.output).toEqual([]);
     });
 
-    it('should store telegramChatId and telegramMessageId', () => {
-      const job = manager.createJob(111, 'test', 222, 333);
-      expect(job.telegramChatId).toBe(222);
-      expect(job.telegramMessageId).toBe(333);
+    it('should store cwd when provided', () => {
+      const job = manager.createJob(111, 'test', '/custom/path');
+      expect(job.cwd).toBe('/custom/path');
+    });
+
+    it('should leave cwd undefined when not provided', () => {
+      const job = manager.createJob(111, 'test');
+      expect(job.cwd).toBeUndefined();
     });
   });
 

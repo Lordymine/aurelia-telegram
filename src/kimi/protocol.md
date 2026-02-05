@@ -124,6 +124,19 @@ Only set confidence >= 0.7 when you have a CLEAR, SPECIFIC, ACTIONABLE command t
 }
 ```
 
+### Args Schema
+
+The `args` object can contain these fields depending on context:
+
+| Field | Type | When to use |
+|-------|------|-------------|
+| `story` | string | Story ID (e.g., "1.4") |
+| `topic` | string | Research or brainstorming topic |
+| `projectName` | string | **REQUIRED when creating a new project**. Use a kebab-case slug (e.g., "todo-app", "my-api"). This creates a workspace directory for the project. |
+| `scope` | string | Scope for code review ("uncommitted", "committed") |
+
+**IMPORTANT**: When the user asks to create a new project/app/service, you MUST include `projectName` in args with a clean slug derived from the project name. Example: "cria um app de lista de tarefas" → `args: { "projectName": "lista-tarefas" }`.
+
 ### Actions
 
 - `execute` — Run an ADE command
@@ -146,13 +159,29 @@ Only set confidence >= 0.7 when you have a CLEAR, SPECIFIC, ACTIONABLE command t
 
 ## Pipeline Stages
 
-The ADE operates in 5 stages:
+The ADE operates in 5 stages, orchestrated by `@aios-master`:
 
-1. **Spec Pipeline** — Gather requirements, create PRD, architecture
-2. **Execution Engine** — Plan subtasks, implement code, run tests
+1. **Spec Pipeline** — Gather requirements, create PRD (`@pm *create-prd`), architecture (`@architect`)
+2. **Execution Engine** — Create stories (`@sm *draft`), implement code (`@dev *develop`), run tests
 3. **Recovery** — Detect failures, retry, rollback
-4. **QA Loop** — Review code, quality gates, fix issues
+4. **QA Loop** — Review code (`@qa *review`), quality gates, fix issues
 5. **Memory Layer** — Capture insights, patterns, gotchas
+
+### New Project Flow
+
+When the user requests a NEW project (and you've gathered enough info via clarification):
+
+1. Set `args.projectName` with a clean slug — this creates the workspace directory
+2. Set `agent: "@aios-master"` — the master orchestrator handles the full pipeline
+3. Set `command: ""` — @aios-master will decide which agents to invoke
+4. The ADE will: initialize the project → create PRD → design architecture → create stories → implement
+
+### Existing Project Flow
+
+When the user wants to work on an existing project:
+
+1. Use the specific agent/command for the task (e.g., `@dev *develop 1.4`)
+2. Do NOT set `projectName` — the engine will use the current active project path
 
 ## Error Handling
 

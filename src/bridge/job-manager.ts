@@ -10,8 +10,7 @@ export interface Job {
   userId: number;
   command: string;
   status: JobStatus;
-  telegramMessageId?: number;
-  telegramChatId?: number;
+  cwd?: string;
   output: string[];
   createdAt: number;
   startedAt?: number;
@@ -60,14 +59,13 @@ export class JobManager extends EventEmitter {
       .slice(0, limit);
   }
 
-  createJob(userId: number, command: string, telegramChatId?: number, telegramMessageId?: number): Job {
+  createJob(userId: number, command: string, cwd?: string): Job {
     const job: Job = {
       id: randomUUID(),
       userId,
       command,
       status: 'queued',
-      telegramMessageId,
-      telegramChatId,
+      cwd,
       output: [],
       createdAt: Date.now(),
     };
@@ -144,6 +142,7 @@ export class JobManager extends EventEmitter {
 
     const options: ExecuteOptions = {
       timeout: 10 * 60 * 1000,
+      cwd: job.cwd,
     };
 
     try {

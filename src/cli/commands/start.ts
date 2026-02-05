@@ -27,7 +27,10 @@ export function createStartCommand(): Command {
         return;
       }
 
-      const engine = new AureliaEngine();
+      const engine = new AureliaEngine({
+        projectPath: config.projectPath,
+        workspacePath: config.workspacePath ?? config.projectPath,
+      });
       const sessionManager = new SessionManager({ defaultProject: config.projectPath });
       const bot = createBot(config, {
         engine,
@@ -63,6 +66,9 @@ export function createStartCommand(): Command {
       );
       console.log(`Bot @${me.username} started in ${config.deployMode} mode.`);
       console.log(`Project: ${config.projectPath}`);
+      if (config.workspacePath) {
+        console.log(`Workspace: ${config.workspacePath}`);
+      }
       console.log('Press Ctrl+C to stop.');
 
       bot.start({

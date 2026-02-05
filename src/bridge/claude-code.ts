@@ -45,7 +45,7 @@ export class ClaudeCodeBridge extends EventEmitter {
 
     const { cwd, timeout = DEFAULT_TIMEOUT, allowedTools, appendSystemPrompt } = options;
 
-    const args = ['--print', '--output-format', 'stream-json'];
+    const args = ['--print', '--verbose', '--output-format', 'stream-json'];
     if (allowedTools) {
       args.push('--allowedTools', allowedTools.join(','));
     }
@@ -58,6 +58,7 @@ export class ClaudeCodeBridge extends EventEmitter {
     return new Promise((resolve, reject) => {
       this._isRunning = true;
       const resultParts: string[] = [];
+      const stderrParts: string[] = [];
       let lineBuffer = '';
 
       this.process = spawn('claude', args, {
@@ -86,6 +87,7 @@ export class ClaudeCodeBridge extends EventEmitter {
 
       this.process.stderr?.on('data', (data: Buffer) => {
         const text = data.toString();
+        stderrParts.push(text);
         logger.debug({ stderr: text }, 'Claude Code stderr');
       });
 
@@ -108,8 +110,10 @@ export class ClaudeCodeBridge extends EventEmitter {
           logger.info({ outputLength: fullOutput.length }, 'Claude Code command completed');
           resolve(fullOutput);
         } else {
-          logger.error({ code }, 'Claude Code command failed');
-          reject(new Error(`Claude Code exited with code ${code}: ${fullOutput}`));
+          const stderrOutput = stderrParts.join('').trim();
+          const errorDetail = fullOutput || stderrOutput || 'No output captured';
+          logger.error({ code, stderr: stderrOutput }, 'Claude Code command failed');
+          reject(new Error(`Claude Code exited with code ${code}: ${errorDetail}`));
         }
       });
 

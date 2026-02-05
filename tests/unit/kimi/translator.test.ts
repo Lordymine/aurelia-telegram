@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { splitMessage, translateUserToADE, translateADEToUser } from '../../../src/kimi/translator.js';
+import { splitMessage, sanitizeForTelegram, translateUserToADE, translateADEToUser } from '../../../src/kimi/translator.js';
 
 vi.mock('../../../src/kimi/client.js', () => ({
   chatCompletion: vi.fn(),
@@ -94,6 +94,38 @@ describe('Kimi Translator', () => {
 
       const result = await translateADEToUser('token', 'Build output: 97 tests passed');
       expect(result).toContain('tests passed');
+    });
+  });
+
+  describe('sanitizeForTelegram', () => {
+    it('should convert ## headers to *bold*', () => {
+      expect(sanitizeForTelegram('## My Header')).toBe('*My Header*');
+      expect(sanitizeForTelegram('### Sub Header')).toBe('*Sub Header*');
+    });
+
+    it('should convert **bold** to *bold*', () => {
+      expect(sanitizeForTelegram('This is **important**')).toBe('This is *important*');
+    });
+
+    it('should convert [text](url) links to text (url)', () => {
+      expect(sanitizeForTelegram('See [docs](https://example.com)')).toBe('See docs (https://example.com)');
+    });
+
+    it('should convert > blockquotes to │ prefix', () => {
+      expect(sanitizeForTelegram('> This is a quote')).toBe('│ This is a quote');
+    });
+
+    it('should convert - list items to • bullets', () => {
+      expect(sanitizeForTelegram('- item 1\n- item 2')).toBe('• item 1\n• item 2');
+    });
+
+    it('should handle combined markdown', () => {
+      const input = '## Title\n\n**Bold text**\n\n- Item 1\n- Item 2\n\n> Quote here';
+      const result = sanitizeForTelegram(input);
+      expect(result).toContain('*Title*');
+      expect(result).toContain('*Bold text*');
+      expect(result).toContain('• Item 1');
+      expect(result).toContain('│ Quote here');
     });
   });
 

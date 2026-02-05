@@ -24,6 +24,7 @@ export const aureliaConfigSchema = z.object({
   botToken: z.string().min(1, 'botToken is required'),
   allowedUsers: z.array(z.number().int()),
   projectPath: z.string().min(1, 'projectPath is required'),
+  workspacePath: z.string().optional(),
   deployMode: z.enum(['local', 'vps']),
   webhook: webhookSchema.optional(),
   kimi: kimiSchema,

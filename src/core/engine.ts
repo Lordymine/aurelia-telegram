@@ -1,3 +1,5 @@
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { translateUserToADE, translateADEToUser, splitMessage, type ADECommand } from '../kimi/translator.js';
 import { JobManager, type JobProgressEvent } from '../bridge/job-manager.js';
 import { logger } from '../utils/logger.js';
@@ -68,11 +70,17 @@ function getQuickResponse(text: string): string | null {
   return null;
 }
 
+export interface EngineOptions {
+  workspacePath?: string;
+  projectPath?: string;
+}
+
 export interface EngineContext {
   userId: number;
   accessToken: string;
   conversationHistory: ChatMessage[];
   activeAgent?: string;
+  activeProjectPath?: string;
 }
 
 export interface EngineResult {
@@ -84,6 +92,13 @@ export interface EngineResult {
 export class AureliaEngine {
   private jobManager = new JobManager();
   private userContexts = new Map<number, EngineContext>();
+  private workspacePath: string;
+  private defaultProjectPath: string;
+
+  constructor(options: EngineOptions = {}) {
+    this.workspacePath = options.workspacePath ?? options.projectPath ?? process.cwd();
+    this.defaultProjectPath = options.projectPath ?? process.cwd();
+  }
 
   getJobManager(): JobManager {
     return this.jobManager;
@@ -152,9 +167,22 @@ export class AureliaEngine {
       };
     }
 
-    // Step 3: Execute via ADE Bridge
-    const prompt = command.rawPrompt || message;
-    const job = this.jobManager.createJob(userId, prompt);
+    // Step 3: Resolve project workspace and build ADE prompt
+    let projectCwd = ctx.activeProjectPath ?? this.defaultProjectPath;
+
+    // If command has a projectName arg, create a workspace for it
+    const projectName = command.args?.projectName as string | undefined;
+    if (projectName) {
+      projectCwd = join(this.workspacePath, projectName);
+      await mkdir(projectCwd, { recursive: true });
+      ctx.activeProjectPath = projectCwd;
+      logger.info({ projectCwd, projectName }, 'Created project workspace');
+    }
+
+    // Build the ADE prompt with @aios-master orchestration
+    const rawPrompt = command.rawPrompt || message;
+    const adePrompt = this.buildADEPrompt(command, rawPrompt, projectCwd);
+    const job = this.jobManager.createJob(userId, adePrompt, projectCwd);
 
     if (onProgress) {
       const progressHandler = (event: JobProgressEvent) => {
@@ -178,8 +206,13 @@ export class AureliaEngine {
     const result = await this.waitForJob(job.id);
 
     if (!result) {
+      const failedJob = this.jobManager.getJob(job.id);
+      const errorMsg = failedJob?.error
+        ? `Error executing command: ${failedJob.error.slice(0, 500)}`
+        : 'Job failed or was cancelled.';
+      logger.error({ jobId: job.id, error: failedJob?.error }, 'Job returned no result');
       return {
-        messages: ['Job failed or was cancelled.'],
+        messages: [errorMsg],
         command,
         jobId: job.id,
       };
@@ -203,6 +236,28 @@ export class AureliaEngine {
       command,
       jobId: job.id,
     };
+  }
+
+  private buildADEPrompt(command: ADECommand, rawPrompt: string, projectCwd: string): string {
+    const agent = command.agent || '@aios-master';
+    const cmd = command.command || '';
+
+    // For new project creation, use full ADE pipeline
+    if (command.args?.projectName || command.action === 'execute') {
+      return [
+        `You are working in: ${projectCwd}`,
+        `User request: ${rawPrompt}`,
+        '',
+        'INSTRUCTIONS:',
+        `- Use agent ${agent} ${cmd}`.trim(),
+        '- Follow the AIOS ADE pipeline: PRD → Architecture → Stories → Implementation',
+        '- Initialize the project if the directory is empty (npm init, git init, install dependencies)',
+        '- Provide a summary of what was done and what the next steps are',
+        '- Keep responses concise and focused on results',
+      ].join('\n');
+    }
+
+    return rawPrompt;
   }
 
   private waitForJob(jobId: string): Promise<string | null> {
