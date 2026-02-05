@@ -1,8 +1,8 @@
 import { logger } from '../utils/logger.js';
 
-const KIMI_API_BASE = 'https://api.moonshot.ai/v1';
+const KIMI_API_BASE = process.env.KIMI_CODE_BASE_URL ?? 'https://api.kimi.com/coding/v1';
 const CHAT_ENDPOINT = `${KIMI_API_BASE}/chat/completions`;
-const DEFAULT_MODEL = 'moonshot-v1-auto';
+const DEFAULT_MODEL = 'kimi-k2.5';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';

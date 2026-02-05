@@ -1,16 +1,17 @@
 import { logger } from '../utils/logger.js';
 import { loadConfig, saveConfig } from '../config/manager.js';
 
-const KIMI_AUTH_BASE = 'https://api.moonshot.ai/v1';
-const DEVICE_CODE_ENDPOINT = `${KIMI_AUTH_BASE}/auth/device/code`;
-const TOKEN_ENDPOINT = `${KIMI_AUTH_BASE}/auth/token`;
-const CLIENT_ID = 'aurelia-telegram';
+const KIMI_OAUTH_HOST = 'https://auth.kimi.com';
+const DEVICE_CODE_ENDPOINT = `${KIMI_OAUTH_HOST}/api/oauth/device_authorization`;
+const TOKEN_ENDPOINT = `${KIMI_OAUTH_HOST}/api/oauth/token`;
+const CLIENT_ID = '17e5f671-d194-4dfb-9706-5516cb48c098';
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes before expiry
 
 export interface DeviceCodeResponse {
   device_code: string;
   user_code: string;
   verification_uri: string;
+  verification_uri_complete?: string;
   expires_in: number;
   interval: number;
 }
@@ -37,10 +38,12 @@ export function isTokenExpired(expiresAt?: number): boolean {
 }
 
 export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
+  const body = new URLSearchParams({ client_id: CLIENT_ID });
+
   const response = await fetch(DEVICE_CODE_ENDPOINT, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ client_id: CLIENT_ID, scope: 'chat' }),
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
   });
 
   if (!response.ok) {
@@ -64,14 +67,16 @@ export async function pollForToken(
     await sleep(pollInterval);
 
     try {
+      const body = new URLSearchParams({
+        client_id: CLIENT_ID,
+        device_code: deviceCode,
+        grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+      });
+
       const response = await fetch(TOKEN_ENDPOINT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-          device_code: deviceCode,
-          client_id: CLIENT_ID,
-        }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
       });
 
       const data = (await response.json()) as TokenResponse | AuthErrorResponse;
@@ -105,14 +110,16 @@ export async function pollForToken(
 }
 
 export async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> {
+  const body = new URLSearchParams({
+    client_id: CLIENT_ID,
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+  });
+
   const response = await fetch(TOKEN_ENDPOINT, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken,
-      client_id: CLIENT_ID,
-    }),
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
   });
 
   if (!response.ok) {

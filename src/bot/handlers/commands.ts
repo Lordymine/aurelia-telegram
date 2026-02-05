@@ -66,10 +66,15 @@ export function createCommandHandlers(config: AureliaConfig, jobManager?: JobMan
       await ctx.reply('Requesting device code from Kimi...');
       const deviceCode = await requestDeviceCode();
 
+      const authUrl = deviceCode.verification_uri_complete ?? deviceCode.verification_uri;
+      const codeHint = deviceCode.verification_uri_complete
+        ? `(code is pre-filled in the URL)`
+        : `Enter code: ${deviceCode.user_code}`;
+
       await ctx.reply(
         `🔐 Kimi Authentication\n\n` +
-          `Go to: ${deviceCode.verification_uri}\n` +
-          `Enter code: ${deviceCode.user_code}\n\n` +
+          `Go to: ${authUrl}\n` +
+          `${codeHint}\n\n` +
           `Waiting for authorization... (expires in ${Math.floor(deviceCode.expires_in / 60)} minutes)`,
       );
 
